@@ -1,0 +1,108 @@
+name: Deploy static site
+
+on:
+  workflow_call:
+    inputs:
+      deploy_host:
+        description: "SSH host"
+        required: true
+        type: string
+
+      deploy_user:
+        description: "SSH user"
+        required: true
+        type: string
+
+      deploy_path:
+        description: "Remote web root"
+        required: true
+        type: string
+
+      node_version:
+        description: "Node.js version"
+        required: false
+        type: string
+        default: "22"
+
+      build_dir:
+        description: "Local directory produced by npm run build"
+        required: false
+        type: string
+        default: "dist"
+
+    secrets:
+      deploy_ssh_key:
+        description: "Private SSH key used for deployment"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out site repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run checks
+        run: npm run check
+
+      - name: Build site
+        run: npm run build
+
+      - name: Validate deployment target
+        env:
+          TARGET: ${{ inputs.deploy_path }}
+          BUILD_DIR: ${{ inputs.build_dir }}
+        run: |
+          if [ -z "$TARGET" ] || [ "$TARGET" = "/" ]; then
+            echo "Invalid deployment target: '$TARGET'"
+            exit 1
+          fi
+
+          if [ ! -d "$BUILD_DIR" ]; then
+            echo "Build directory '$BUILD_DIR' does not exist."
+            exit 1
+          fi
+
+      - name: Install deployment tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync openssh-client
+
+      - name: Configure SSH
+        env:
+          HOST: ${{ inputs.deploy_host }}
+          SSH_KEY: ${{ secrets.deploy_ssh_key }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy site
+        env:
+          HOST: ${{ inputs.deploy_host }}
+          USER: ${{ inputs.deploy_user }}
+          TARGET: ${{ inputs.deploy_path }}
+          BUILD_DIR: ${{ inputs.build_dir }}
+        run: |
+          rsync -az --delete \
+            --exclude ".well-known/" \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes" \
+            "$BUILD_DIR/" \
+            "$USER@$HOST:$TARGET/"
