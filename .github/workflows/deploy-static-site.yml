@@ -8,6 +8,11 @@ on:
         required: true
         type: string
 
+      deploy_host_key:
+        description: "Trusted SSH host public key"
+        required: true
+        type: string
+
       deploy_user:
         description: "SSH user"
         required: true
@@ -84,6 +89,7 @@ jobs:
       - name: Configure SSH
         env:
           HOST: ${{ inputs.deploy_host }}
+          HOST_KEY: ${{ inputs.deploy_host_key }}
           SSH_KEY: ${{ secrets.deploy_ssh_key }}
         run: |
           mkdir -p ~/.ssh
@@ -92,7 +98,8 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+          printf '%s %s\n' "$HOST" "$HOST_KEY" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Deploy site
         env:
@@ -103,6 +110,6 @@ jobs:
         run: |
           rsync -az --delete \
             --exclude ".well-known/" \
-            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes" \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
             "$BUILD_DIR/" \
             "$USER@$HOST:$TARGET/"
