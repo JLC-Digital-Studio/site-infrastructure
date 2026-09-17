@@ -88,10 +88,26 @@ jobs:
 
       - name: Configure SSH
         env:
-          HOST: ${{ inputs.deploy_host }}
-          HOST_KEY: ${{ inputs.deploy_host_key }}
+          HOST_RAW: ${{ inputs.deploy_host }}
+          HOST_KEY_RAW: ${{ inputs.deploy_host_key }}
           SSH_KEY: ${{ secrets.deploy_ssh_key }}
         run: |
+          HOST="$(printf '%s' "$HOST_RAW" | tr -d '\r\n')"
+          HOST_KEY="$(printf '%s' "$HOST_KEY_RAW" | tr -d '\r\n')"
+
+          if [ -z "$HOST" ]; then
+            echo "SSH host is empty after normalization."
+            exit 1
+          fi
+
+          case "$HOST_KEY" in
+            ssh-ed25519\ *) ;;
+            *)
+              echo "Trusted host key must be an ssh-ed25519 public key."
+              exit 1
+              ;;
+          esac
+
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
@@ -103,11 +119,13 @@ jobs:
 
       - name: Deploy site
         env:
-          HOST: ${{ inputs.deploy_host }}
+          HOST_RAW: ${{ inputs.deploy_host }}
           USER: ${{ inputs.deploy_user }}
           TARGET: ${{ inputs.deploy_path }}
           BUILD_DIR: ${{ inputs.build_dir }}
         run: |
+          HOST="$(printf '%s' "$HOST_RAW" | tr -d '\r\n')"
+
           rsync -az --delete \
             --exclude ".well-known/" \
             -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes" \
