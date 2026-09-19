@@ -66,6 +66,28 @@ jobs:
       - name: Build site
         run: npm run build
 
+      - name: Add deployment metadata
+        env:
+          BUILD_DIR: ${{ inputs.build_dir }}
+        run: |
+          COMMIT_SHA="$(git rev-parse --short HEAD)"
+          COMMIT_DATE="$(git log -1 --format=%cI)"
+
+          cat > "$BUILD_DIR/last-commit.html" <<EOF
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="robots" content="noindex, nofollow">
+            <title>Deployment Information</title>
+          </head>
+          <body>
+            <p>Commit: $COMMIT_SHA</p>
+            <p>Commit date: $COMMIT_DATE</p>
+          </body>
+          </html>
+          EOF
+
       - name: Validate deployment target
         env:
           TARGET: ${{ inputs.deploy_path }}
