@@ -23,7 +23,7 @@ After the site build completes, the reusable workflow generates
 The page contains:
 
 - the short Git commit SHA used for the deployment; and
-- the commit timestamp in ISO 8601 format.
+- the commit date in a human-readable fixed EST (UTC−5) format.
 
 It also includes `noindex, nofollow` so search engines are discouraged
 from indexing the operational metadata page.
