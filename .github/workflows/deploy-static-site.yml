@@ -72,7 +72,7 @@ jobs:
         run: |
           COMMIT_SHA="$(git rev-parse --short HEAD)"
           COMMIT_DATE_RAW="$(git log -1 --format=%cI)"
-          COMMIT_DATE="$(TZ=EST5 date -d "$COMMIT_DATE_RAW" '+%B %-d, %Y at %-I:%M %p EST')"
+          COMMIT_DATE="$(TZ=America/New_York date -d "$COMMIT_DATE_RAW" '+%B %-d, %Y at %-I:%M %p %Z')"
 
           cat > "$BUILD_DIR/last-commit.html" <<EOF
           <!doctype html>
